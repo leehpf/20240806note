@@ -218,7 +218,7 @@
                     levelUp();
                 }
             } else {
-                endGame(true);  // 闖關失敗
+                showAnswer();  // 顯示解答
             }
         }
 
@@ -238,9 +238,11 @@
             createGrid();
             showNumbers();
             startBtn.disabled = true;
+            timerDisplay.textContent = '時間正在倒數';
             
             setTimeout(() => {
                 hideNumbers();
+                timerDisplay.textContent = `Time: ${timeLeft}`;
                 startTimer();
                 resetHintTimer();
             }, 15000);
@@ -255,6 +257,17 @@
             }
             alert(`遊戲結束！你到達了第 ${level} 關。`);
             resetGame();
+        }
+
+        function showAnswer() {
+            gameActive = false;
+            clearInterval(timer);
+            clearTimeout(hintTimer);
+            showNumbers();
+            setTimeout(() => {
+                alert(`遊戲結束！你到達了第 ${level} 關。`);
+                resetGame();
+            }, 3000);
         }
 
         function resetGame() {
