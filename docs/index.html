@@ -1,1 +1,251 @@
-gg
+
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>巴黎奧運主題記憶力訓練遊戲</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            transition: background-color 0.5s;
+        }
+        .game-container {
+            text-align: center;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            transition: background-color 0.5s;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 120px);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .cell {
+            width: 120px;
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            border-radius: 10px;
+        }
+        .cell:hover {
+            opacity: 0.8;
+        }
+        button {
+            font-size: 24px;
+            padding: 15px 30px;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        #timer, #level {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div id="level">Level: 1</div>
+        <div id="timer">Time: 10</div>
+        <div class="grid" id="grid"></div>
+        <button id="startBtn">開始遊戲</button>
+    </div>
+
+    <script>
+        const grid = document.getElementById('grid');
+        const startBtn = document.getElementById('startBtn');
+        const timerDisplay = document.getElementById('timer');
+        const levelDisplay = document.getElementById('level');
+        const gameContainer = document.querySelector('.game-container');
+
+        let numbers = [];
+        let currentNumber = 1;
+        let timer;
+        let timeLeft = 10;
+        let level = 1;
+        let gameActive = false;
+
+        // 音頻上下文
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        // 音符頻率
+        const noteFrequencies = [
+            261.63, // C4
+            293.66, // D4
+            329.63, // E4
+            349.23, // F4
+            392.00, // G4
+            440.00, // A4
+            493.88, // B4
+            523.25, // C5
+            587.33  // D5
+        ];
+
+        function playTone(frequency, duration = 0.5) {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        // 巴黎奧運配色
+        const olympicColors = {
+            gold: '#C8A461',
+            darkBlue: '#130E46',
+            rosePink: '#FEA1BF',
+            red: '#DD0331',
+            purple: '#5B0DAC'
+        };
+
+        // 配色方案
+        const colorSchemes = [
+            { primary: olympicColors.darkBlue, secondary: olympicColors.gold, background: olympicColors.rosePink, text: olympicColors.darkBlue },
+            { primary: olympicColors.purple, secondary: olympicColors.rosePink, background: olympicColors.gold, text: olympicColors.darkBlue },
+            { primary: olympicColors.red, secondary: olympicColors.gold, background: olympicColors.darkBlue, text: olympicColors.gold },
+            { primary: olympicColors.gold, secondary: olympicColors.purple, background: olympicColors.darkBlue, text: olympicColors.gold },
+            { primary: olympicColors.rosePink, secondary: olympicColors.darkBlue, background: olympicColors.purple, text: olympicColors.gold }
+        ];
+
+        function applyRandomColorScheme() {
+            const scheme = colorSchemes[Math.floor(Math.random() * colorSchemes.length)];
+            document.body.style.backgroundColor = scheme.background;
+            document.body.style.color = scheme.text;
+            gameContainer.style.backgroundColor = scheme.secondary;
+            startBtn.style.backgroundColor = scheme.primary;
+            startBtn.style.color = scheme.text;
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.style.backgroundColor = scheme.primary;
+            });
+        }
+
+        function createGrid() {
+            grid.innerHTML = '';
+            numbers = Array.from({length: 9}, (_, i) => i + 1);
+            numbers.sort(() => Math.random() - 0.5);
+
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.dataset.number = numbers[i];
+                cell.addEventListener('click', () => checkNumber(cell));
+                grid.appendChild(cell);
+            }
+            applyRandomColorScheme();
+        }
+
+        function showNumbers() {
+            document.querySelectorAll('.cell').forEach((cell, index) => {
+                cell.textContent = numbers[index];
+                // 播放對應音調
+                setTimeout(() => {
+                    playTone(noteFrequencies[numbers[index] - 1], 0.3);
+                }, index * 300);
+            });
+        }
+
+        function hideNumbers() {
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.textContent = '';
+            });
+        }
+
+        function startTimer() {
+            timer = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = `Time: ${timeLeft}`;
+                if (timeLeft === 0) {
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        function checkNumber(cell) {
+            if (!gameActive) return;
+            
+            const clickedNumber = parseInt(cell.dataset.number);
+            if (clickedNumber === currentNumber) {
+                cell.style.backgroundColor = olympicColors.gold;
+                playTone(noteFrequencies[clickedNumber - 1], 0.3);
+                currentNumber++;
+                if (currentNumber > 9) {
+                    levelUp();
+                }
+            } else {
+                endGame();
+            }
+        }
+
+        function levelUp() {
+            level++;
+            levelDisplay.textContent = `Level: ${level}`;
+            timeLeft = Math.max(11 - level, 3); // Minimum 3 seconds
+            currentNumber = 1;
+            clearInterval(timer);
+            startGame();
+        }
+
+        function startGame() {
+            gameActive = true;
+            createGrid();
+            showNumbers();
+            startBtn.disabled = true;
+            
+            setTimeout(() => {
+                hideNumbers();
+                startTimer();
+            }, 3000); // 延長顯示時間到 3 秒
+        }
+
+        function endGame() {
+            gameActive = false;
+            clearInterval(timer);
+            alert(`遊戲結束！你到達了第 ${level} 關。`);
+            resetGame();
+        }
+
+        function resetGame() {
+            level = 1;
+            levelDisplay.textContent = `Level: ${level}`;
+            timeLeft = 10;
+            timerDisplay.textContent = `Time: ${timeLeft}`;
+            currentNumber = 1;
+            startBtn.disabled = false;
+            hideNumbers();
+            applyRandomColorScheme();
+        }
+
+        startBtn.addEventListener('click', () => {
+            audioContext.resume().then(() => startGame());
+        });
+        resetGame();
+    </script>
+</body>
+</html>
